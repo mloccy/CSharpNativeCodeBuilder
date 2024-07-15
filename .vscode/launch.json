@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/NativeCodeBuilder/Artomatix.NativeCodeBuilder/bin/Debug/net8.0/Artomatix.NativeCodeBuilder.dll",
-            "args": ["create", "-o", "test.xml", "-y", "-b", "build", ],
+            "args": ["../../PbrGen/PbrGen.Net/PbrGen.Net", "Debug" ],
 
         }
 

@@ -42,8 +42,8 @@ namespace Artomatix.NativeCodeBuilder
             [Value(0, Required = true, MetaName = nameof(ProjectDir))]
             public string ProjectDir { get; set; }
 
-            [Value(1, Required = true, MetaName = nameof(Target))]
-            public string Target { get; set; }
+            [Value(1, Required = true, MetaName = nameof(Configuration))]
+            public string Configuration { get; set; }
 
             [Value(2, MetaName = nameof(Generator))]
             public string Generator { get; set; }
@@ -149,7 +149,13 @@ namespace Artomatix.NativeCodeBuilder
         private static int HandleBuildCommand(BuildArgs args)
         {
             var projectDir = args.ProjectDir;
-            var target = args.Target;
+
+            if (!Path.IsPathRooted(projectDir))
+            {
+                projectDir = Path.GetFullPath(projectDir);
+            }
+
+            var configuration = args.Configuration;
 
             string generator = null;
             string buildTools = "v141";
@@ -180,7 +186,7 @@ namespace Artomatix.NativeCodeBuilder
                 arch = originalArch;
             }
 
-            var nativeSettingsPath = Path.Combine(projectDir, "NativeCodeSettings.xml");
+            var nativeSettingsPath = Path.Join(projectDir, "NativeCodeSettings.xml");
 
             if (!File.Exists(nativeSettingsPath))
             {
@@ -197,7 +203,7 @@ namespace Artomatix.NativeCodeBuilder
                 nativeSettings = (NativeCodeSettings)serializer.Deserialize(file);
             }
 
-            var nativeCodePath = Path.Combine(projectDir, nativeSettings.PathToNativeCodeBase);
+            var nativeCodePath = Path.GetFullPath(Path.Join(projectDir, nativeSettings.PathToNativeCodeBase));
 
             if (!Directory.Exists(nativeCodePath))
             {
@@ -209,7 +215,7 @@ namespace Artomatix.NativeCodeBuilder
                 return (int)Error.NativeCodePathNotFound;
             }
 
-            var buildDir = Path.Combine(nativeCodePath, $"{nativeSettings.BuildPathBase}_{target}_{originalArch}");
+            var buildDir = Path.Combine(nativeCodePath, $"{nativeSettings.BuildPathBase}_{configuration}_{originalArch}");
             var cmakeArgs = nativeSettings.CMakeArguments;
 
             Console.WriteLine("buildDir is " + buildDir);
@@ -220,30 +226,22 @@ namespace Artomatix.NativeCodeBuilder
                 Directory.CreateDirectory(buildDir);
             }
 
-            Directory.SetCurrentDirectory(buildDir);
+            // Directory.SetCurrentDirectory(buildDir);
 
-            var generatorArgument = generator != null ? $"-G \"{generator} {arch}\" " : "";
+            var generatorArgument = !String.IsNullOrEmpty(generator) ? $"-G \"{generator} {arch}\" " : "";
 
             string cfargs;
 
             if (vs2019)
             {
-                cfargs = ".. " +
-                    $"-G \"{generator}\" " +
-                    $"-A {arch} " +
-                    $"-T {buildTools} " +
-                    $"{cmakeArgs} " +
-                    $"-DCMAKE_INSTALL_PREFIX=inst";
+                cfargs = $@"-S {nativeCodePath} -G {generator} -A {arch} -T {buildTools} -B {buildDir} {cmakeArgs} -DCMAKE_INSTALL_PREFIX={buildDir}/inst";
             }
             else
             {
-                cfargs = ".. " +
-                $"{cmakeArgs} " +
-                generatorArgument +
-                "-DCMAKE_INSTALL_PREFIX=inst";
+                cfargs = $@"-S {nativeCodePath} {generatorArgument} -B {buildDir} {cmakeArgs} -DCMAKE_INSTALL_PREFIX={buildDir}/inst";
             }
 
-            Console.WriteLine($"CMake args are {cfargs}");
+            Console.WriteLine($"CMake Generation args are {cfargs}");
             var cmakeConfigureLaunchArgs = new ProcessStartInfo("cmake", cfargs)
             {
                 UseShellExecute = false,
@@ -252,9 +250,10 @@ namespace Artomatix.NativeCodeBuilder
                 RedirectStandardOutput = true
             };
 
-            var cmakeConfigureProcess = new Process();
-
-            cmakeConfigureProcess.StartInfo = cmakeConfigureLaunchArgs;
+            var cmakeConfigureProcess = new Process
+            {
+                StartInfo = cmakeConfigureLaunchArgs
+            };
 
             cmakeConfigureProcess.OutputDataReceived += WriteOutput;
             cmakeConfigureProcess.ErrorDataReceived += WriteOutput;
@@ -274,7 +273,7 @@ namespace Artomatix.NativeCodeBuilder
                 return (int)Error.CMakeConfigureStepError;
             }
 
-            var cmakeBuildLaunchArgs = new ProcessStartInfo("cmake", $"--build . --target install --config {target}")
+            var cmakeBuildLaunchArgs = new ProcessStartInfo("cmake", $"--build {buildDir} --target install --config {configuration}")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -282,8 +281,10 @@ namespace Artomatix.NativeCodeBuilder
                 RedirectStandardOutput = true
             };
 
-            var cmakeBuildProcess = new Process();
-            cmakeBuildProcess.StartInfo = cmakeBuildLaunchArgs;
+            var cmakeBuildProcess = new Process
+            {
+                StartInfo = cmakeBuildLaunchArgs
+            };
 
             cmakeBuildProcess.OutputDataReceived += WriteOutput;
             cmakeBuildProcess.ErrorDataReceived += WriteOutput;
