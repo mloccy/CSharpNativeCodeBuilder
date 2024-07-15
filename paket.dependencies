@@ -3,5 +3,4 @@
 
 source https://api.nuget.org/v3/index.json
 source ./built_packages
-
-nuget CommandLineParser 2.8.0
+nuget CommandLineParser 2.9.1
