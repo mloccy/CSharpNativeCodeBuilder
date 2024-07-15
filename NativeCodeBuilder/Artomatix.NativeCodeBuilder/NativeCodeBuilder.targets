@@ -1,6 +1,6 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <!-- Prevent dotnet template engine to parse this file -->
-  <!--/-:cnd:noEmit-->  
+  <!--/-:cnd:noEmit-->
   <PropertyGroup Condition="$(Configuration.StartsWith('Debug'))">
     <NativeConfigurationName>Debug</NativeConfigurationName>
   </PropertyGroup>
@@ -10,23 +10,23 @@
 
   <!-- don't condition this on the existence of the nativecodebuilder, as we don't want it to fail silently -->
   <Target Name="BuildNativeCode" >
-    <Exec 
-        Condition="'$(OS)' != 'Windows_NT'" 
-        Command="bash &quot;$(SolutionDir)../packages/Artomatix.NativeCodeBuilder/scripts/native_code_builder.sh&quot; &quot;$(ProjectDir)&quot; &quot;$(NativeConfigurationName)&quot;" />
+    <Exec
+        Condition="'$(OS)' != 'Windows_NT'"
+        Command="dotnet run &quot;$(MSBuildThisFileDirectory)/Artomatix.NativeCodeBuilder.dll&quot; &quot;$(ProjectDir)&quot; &quot;$(NativeConfigurationName)&quot;" />
 
-    <Exec 
-        Condition="'$(OS)' == 'Windows_NT'" 
+    <Exec
+        Condition="'$(OS)' == 'Windows_NT'"
         Command="&quot;$(SolutionDir)../packages/Artomatix.NativeCodeBuilder/scripts/Artomatix.NativeCodeBuilder.exe&quot; &quot;$(ProjectDir.TrimEnd('\'))&quot; &quot;$(NativeConfigurationName)&quot; &quot;Visual Studio $(MSBuildToolsVersion.Substring(0, 2))&quot; &quot;$(PlatformName)&quot;" />
-    
+
   </Target>
-  
-  <Target Name="BuildNativeCodeOnRebuild" 
+
+  <Target Name="BuildNativeCodeOnRebuild"
 		  BeforeTargets="BeforeRebuild">
-    <CallTarget Targets="BuildNativeCode"/>    
+    <CallTarget Targets="BuildNativeCode"/>
   </Target>
-  
+
   <!-- Always build native code when not building from visual studio, jenkins needs this every time to ensure the TempDLLs folder exists: -->
-  <Target Name="BuildNativeCodeNonVS" 
+  <Target Name="BuildNativeCodeNonVS"
 		  BeforeTargets="BeforeBuild"
 		  Condition="'$(VisualStudioDir)' == ''" >
 	<CallTarget Targets="BuildNativeCode"/>

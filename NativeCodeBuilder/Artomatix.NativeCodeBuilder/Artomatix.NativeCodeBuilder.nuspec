@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package >
+    <metadata>
+        <id>Artomatix.NativeCodeBuilder</id>
+        <version>1.0.10</version>
+        <authors>wheybags</authors>
+        <owners>Artomatix Ltd</owners>
+        <licenseUrl>https://opensource.org/licenses/MIT</licenseUrl>
+        <description>a</description>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <copyright>Copyright Artomatix 2019</copyright>
+
+    </metadata>
+
+</package>

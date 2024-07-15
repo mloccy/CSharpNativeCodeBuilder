@@ -173,9 +173,9 @@ namespace Artomatix.NativeCodeBuilder
                 }
             }
 
-            var platform = NativeBinaryExtractor.GetCurrentPlatform();
+            var platform = Helpers.GetCurrentPlatform();
 
-            var originalArch = NativeBinaryExtractor.GetArchString();
+            var originalArch = Helpers.GetArchString();
 
             var arch = Environment.Is64BitProcess && platform == Platform.Windows && !vs2019
                 ? "Win64"

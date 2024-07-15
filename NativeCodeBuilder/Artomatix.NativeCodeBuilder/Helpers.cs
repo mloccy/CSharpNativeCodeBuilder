@@ -10,7 +10,7 @@ namespace Artomatix.NativeCodeBuilder
         Linux
     }
 
-    internal class NativeBinaryExtractor
+    internal class Helpers
     {
         public static Platform GetCurrentPlatform()
         {
