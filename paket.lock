@@ -1,4 +1,4 @@
-RESTRICTION: == netcoreapp3.1
+STORAGE: NONE
 NUGET
   remote: https://api.nuget.org/v3/index.json
     CommandLineParser (2.9.1)

@@ -1,6 +1,4 @@
-# update misc/jenkins/verify_target_framework_versions.sh if you change this
- framework: netcoreapp3.1
-
 source https://api.nuget.org/v3/index.json
-source ./built_packages
-nuget CommandLineParser 2.9.1
+
+storage: none
+nuget CommandLineParser
