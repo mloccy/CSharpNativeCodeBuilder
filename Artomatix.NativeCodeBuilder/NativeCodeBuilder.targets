@@ -12,7 +12,7 @@
   <Target Name="BuildNativeCode" >
     <Exec
         Condition="'$(OS)' != 'Windows_NT'"
-        Command="dotnet run &quot;$(MSBuildThisFileDirectory)/Artomatix.NativeCodeBuilder.dll&quot; &quot;$(ProjectDir)&quot; &quot;$(NativeConfigurationName)&quot;" />
+        Command="&quot;$(MSBuildThisFileDirectory)/Artomatix.NativeCodeBuilder&quot; &quot;$(ProjectDir)&quot; &quot;$(NativeConfigurationName)&quot;" />
 
     <Exec
         Condition="'$(OS)' == 'Windows_NT'"

@@ -245,7 +245,7 @@ namespace Artomatix.NativeCodeBuilder
             Console.WriteLine($"CMake Generation args are {cfargs}");
             var cmakeConfigureLaunchArgs = new ProcessStartInfo("cmake", cfargs)
             {
-                UseShellExecute = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+                UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true,
                 RedirectStandardOutput = true
