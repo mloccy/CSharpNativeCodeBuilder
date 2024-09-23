@@ -14,6 +14,13 @@ namespace Artomatix.NativeCodeBuilder
 {
     public class Program
     {
+
+        enum ActionRequired
+        {
+            None,
+            Build,
+            Regenerate
+        }
         public class CustomXMLWriter : XmlTextWriter
         {
             public CustomXMLWriter(Stream stream) : base(stream, Encoding.UTF8)
@@ -34,20 +41,18 @@ namespace Artomatix.NativeCodeBuilder
             NativeSettingsNotFound = 2,
             NativeCodePathNotFound = 3,
             CMakeConfigureStepError = 4,
-            CMakeBuildError = 5
+            CMakeBuildError = 5,
+            BuildStampPathNotSet = 6
         }
 
         [Verb(nameof(BuildArgs), true)]
         private class BuildArgs
         {
-            [Value(0, Required = true, MetaName = nameof(ProjectDir))]
-            public string ProjectDir { get; set; }
+            [Value(0, Required = true, MetaName = nameof(SettingsPath))]
+            public string SettingsPath { get; set; }
 
             [Value(1, Required = true, MetaName = nameof(Configuration))]
             public string Configuration { get; set; }
-
-            [Value(2, MetaName = nameof(Generator))]
-            public string Generator { get; set; }
         }
 
         [Verb("create", false)]
@@ -103,7 +108,7 @@ namespace Artomatix.NativeCodeBuilder
         {
             var settings = new NativeCodeSettings()
             {
-                CMakeArguments = args.CMakeArgs ?? "",
+                CMakeGenerationArguments = args.CMakeArgs ?? "",
                 DLLTargets = args.Targets.ToArray(),
                 PathToNativeCodeBase = args.PathToNativeCode ?? "",
                 BuildPathBase = args.BuildFolderBase ?? ""
@@ -147,9 +152,79 @@ namespace Artomatix.NativeCodeBuilder
             return 0;
         }
 
+        static ActionRequired CheckActionNeededToBuild(string stampPath, string[] extensions, string baseDir)
+        {
+            if (!File.Exists(stampPath))
+            {
+                return ActionRequired.Regenerate;
+            }
+
+            if (extensions == null)
+            {
+                return ActionRequired.Regenerate;
+            }
+
+            extensions = extensions
+                .Select(f => f.ToLowerInvariant())
+                .Select(f => f.Trim()).ToArray();
+
+            var stampLastWritten = new FileInfo(stampPath).LastWriteTimeUtc;
+            var options = new EnumerationOptions
+            {
+                BufferSize = (int)Math.Pow(2, 16),
+                MaxRecursionDepth = (int)Math.Pow(2, 8),
+                RecurseSubdirectories = true
+            };
+
+            var allFiles = Directory
+                .EnumerateFiles(baseDir, "*.*", options);
+
+            var sourceFileWrittenTimes = allFiles
+                .Where(s => extensions.Contains(Path.GetExtension(s).TrimStart('.').ToLowerInvariant()))
+                .Select(s => new { Path = s, Info = new FileInfo(s) })
+                .Where(s => s.Info.LastWriteTimeUtc > stampLastWritten);
+
+            var anySourceNewerThanStamp = sourceFileWrittenTimes.Any();
+
+            if (anySourceNewerThanStamp)
+            {
+                foreach (var item in sourceFileWrittenTimes)
+                {
+                    Console.WriteLine($"Change detected in source file {item.Path}");
+                }
+            }
+
+            var cmakeListFileWrittenTimes = allFiles
+                .Where(s => Path.GetFileName(s).ToLowerInvariant() == "cmakelists.txt")
+                .Select(s => new { Path = s, Info = new FileInfo(s) })
+                .Where(s => s.Info.LastWriteTimeUtc > stampLastWritten);
+
+            var anyCMakeListsNewerThanStamp = cmakeListFileWrittenTimes.Any();
+            if (anyCMakeListsNewerThanStamp)
+            {
+                foreach (var item in cmakeListFileWrittenTimes)
+                {
+                    Console.WriteLine($"Change detected in CMakeLists.txt file {item.Path}");
+                }
+            }
+
+            if (anyCMakeListsNewerThanStamp)
+            {
+                return ActionRequired.Regenerate;
+            }
+            else if (anySourceNewerThanStamp && !anyCMakeListsNewerThanStamp)
+            {
+                return ActionRequired.Build;
+            }
+            else
+            {
+                return ActionRequired.None;
+            }
+        }
+
         private static int HandleBuildCommand(BuildArgs args)
         {
-            var projectDir = args.ProjectDir;
+            var projectDir = Path.GetDirectoryName(args.SettingsPath);
 
             if (!Path.IsPathRooted(projectDir))
             {
@@ -158,21 +233,8 @@ namespace Artomatix.NativeCodeBuilder
 
             var configuration = args.Configuration;
 
-            string generator = null;
             string buildTools = "v141";
             bool vs2019 = false;
-
-            if (!String.IsNullOrEmpty(args.Generator))
-            {
-                generator = args.Generator;
-
-                if (generator == "Visual Studio Cu" || generator == "Visual Studio Current")
-                {
-                    generator = "Visual Studio 16";
-                    buildTools = "v142";
-                    vs2019 = true;
-                }
-            }
 
             var platform = Helpers.GetCurrentPlatform();
 
@@ -187,94 +249,121 @@ namespace Artomatix.NativeCodeBuilder
                 arch = originalArch;
             }
 
-            var nativeSettingsPath = Path.Join(projectDir, "NativeCodeSettings.xml");
-
-            if (!File.Exists(nativeSettingsPath))
+            if (!File.Exists(args.SettingsPath))
             {
-                Console.Error.WriteLine($"Native settings file not found: {nativeSettingsPath}");
+                Console.Error.WriteLine($"Native settings file not found: {args.SettingsPath}");
 
                 return (int)Error.NativeSettingsNotFound;
             }
 
             var serializer = new XmlSerializer(typeof(NativeCodeSettings));
 
-            INativeCodeSettings nativeSettings = null;
-            using (var file = File.OpenRead(nativeSettingsPath))
+            INativeCodeSettings settings = null;
+            using (var file = File.OpenRead(args.SettingsPath))
             {
-                nativeSettings = (NativeCodeSettings)serializer.Deserialize(file);
+                settings = (NativeCodeSettings)serializer.Deserialize(file);
             }
 
-            var nativeCodePath = Path.GetFullPath(Path.Join(projectDir, nativeSettings.PathToNativeCodeBase));
+            var stampPath = settings.BuildStampPath;
+
+            if (String.IsNullOrWhiteSpace(stampPath))
+            {
+                Console.WriteLine("No build stamp path set");
+                return (int)Error.BuildStampPathNotSet;
+            }
+            else
+            {
+                if (!Path.IsPathRooted(stampPath))
+                {
+                    stampPath = Path.GetFullPath(stampPath, projectDir);
+                }
+            }
+
+            var nativeCodePath = Path.GetFullPath(Path.Join(projectDir, settings.PathToNativeCodeBase));
 
             if (!Directory.Exists(nativeCodePath))
             {
                 Console.Error.Write(
                     $"Your native source code directory ({nativeCodePath}) doesn't exist!\n" +
-                    $"Edit this file to change it: {nativeSettingsPath}\n" +
-                    $"Current contents:{string.Join(Environment.NewLine, nativeSettings)}");
+                    $"Edit this file to change it: {args.SettingsPath}\n" +
+                    $"Current contents:{string.Join(Environment.NewLine, settings)}");
 
                 return (int)Error.NativeCodePathNotFound;
             }
 
-            var buildDir = Path.Combine(nativeCodePath, $"{nativeSettings.BuildPathBase}_{configuration}_{originalArch}");
-            var cmakeArgs = nativeSettings.CMakeArguments;
+            var actionRequested = CheckActionNeededToBuild(stampPath, settings.NativeFileExtensions, nativeCodePath);
+
+            if (actionRequested == ActionRequired.None)
+            {
+                Console.WriteLine("No changes detected since last build -- quitting");
+                return (int)Error.Success;
+            }
+
+            var buildDir = Path.Combine(nativeCodePath, $"{settings.BuildPathBase}_{configuration}_{originalArch}");
 
             Console.WriteLine("buildDir is " + buildDir);
-            Console.WriteLine("CMakeArgs are " + cmakeArgs);
+            Console.WriteLine($"CMake Generations Args are {settings.CMakeGenerationArguments}");
+            Console.WriteLine($"CMake Build Args are {settings.CMakeBuildArguments}");
 
             if (!Directory.Exists(buildDir))
             {
                 Directory.CreateDirectory(buildDir);
             }
 
-            // Directory.SetCurrentDirectory(buildDir);
-
-            var generatorArgument = !String.IsNullOrEmpty(generator) ? $"-G \"{generator} {arch}\" " : "";
+            string generator = null;
+            var generatorArgument = !String.IsNullOrEmpty(settings.CMakeGenerator) ? $"-G \"{generator} {arch}\" " : "";
 
             string cfargs;
 
             if (vs2019)
             {
-                cfargs = $@"-S {nativeCodePath} -G ""{generator}\"" -A {arch} -T {buildTools} -B {buildDir} {cmakeArgs} -DCMAKE_INSTALL_PREFIX={buildDir}/inst";
+                cfargs = $@"-S {nativeCodePath} -G ""{generator}\"" -A {arch} -T {buildTools} -B {buildDir} {settings.CMakeGenerationArguments} -DCMAKE_INSTALL_PREFIX={buildDir}/inst";
             }
             else
             {
-                cfargs = $@"-S {nativeCodePath} {generatorArgument} -B {buildDir} {cmakeArgs} -DCMAKE_INSTALL_PREFIX={buildDir}/inst";
+                cfargs = $@"-S {nativeCodePath} {generatorArgument} -B {buildDir} {settings.CMakeGenerationArguments} -DCMAKE_INSTALL_PREFIX={buildDir}/inst";
             }
 
-            Console.WriteLine($"CMake Generation args are {cfargs}");
-            var cmakeConfigureLaunchArgs = new ProcessStartInfo("cmake", cfargs)
+
+            if (actionRequested == ActionRequired.Regenerate)
             {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true
-            };
+                Console.WriteLine($"CMake Generation args are {cfargs}");
+                var cmakeConfigureLaunchArgs = new ProcessStartInfo("cmake", cfargs)
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
+                };
 
-            var cmakeConfigureProcess = new Process
-            {
-                StartInfo = cmakeConfigureLaunchArgs
-            };
+                var cmakeConfigureProcess = new Process
+                {
+                    StartInfo = cmakeConfigureLaunchArgs
+                };
 
-            cmakeConfigureProcess.OutputDataReceived += WriteOutput;
-            cmakeConfigureProcess.ErrorDataReceived += WriteOutput;
+                cmakeConfigureProcess.OutputDataReceived += WriteOutput;
+                cmakeConfigureProcess.ErrorDataReceived += WriteOutput;
 
-            cmakeConfigureProcess.Start();
+                cmakeConfigureProcess.Start();
 
-            cmakeConfigureProcess.BeginOutputReadLine();
-            cmakeConfigureProcess.BeginErrorReadLine();
+                cmakeConfigureProcess.BeginOutputReadLine();
+                cmakeConfigureProcess.BeginErrorReadLine();
 
-            cmakeConfigureProcess.WaitForExit();
+                cmakeConfigureProcess.WaitForExit();
 
-            if (cmakeConfigureProcess.ExitCode != 0)
-            {
-                Console.Error.WriteLine($"CMake exited with non-zero error code: {cmakeConfigureProcess.ExitCode}.");
-                Console.Error.WriteLine($"Deleting the {buildDir} directory might fix this.");
+                if (cmakeConfigureProcess.ExitCode != 0)
+                {
+                    Console.Error.WriteLine($"CMake exited with non-zero error code: {cmakeConfigureProcess.ExitCode}.");
+                    Console.Error.WriteLine($"Deleting the {buildDir} directory might fix this.");
 
-                return (int)Error.CMakeConfigureStepError;
+                    return (int)Error.CMakeConfigureStepError;
+                }
             }
 
-            var cmakeBuildLaunchArgs = new ProcessStartInfo("cmake", $"--build {buildDir} --target install --config {configuration}")
+            var buildArgs = $"--build {buildDir} --target install --config {configuration} {settings.CMakeBuildArguments}";
+
+            Console.WriteLine($"Calling cmake --build with {buildArgs}");
+            var cmakeBuildLaunchArgs = new ProcessStartInfo("cmake", buildArgs)
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -317,12 +406,27 @@ namespace Artomatix.NativeCodeBuilder
                 Directory.CreateDirectory(embeddedFilesPath);
             }
 
-            for (var index = 0; index < nativeSettings.DLLTargets.Length; index++)
+            for (var index = 0; index < settings.DLLTargets.Length; index++)
             {
                 var prefix = platform != Platform.Windows ? "lib" : string.Empty;
-                var dllToCopy = Path.Combine(buildDir, "inst", "lib", $"{prefix}{nativeSettings.DLLTargets[index]}.{dllExtension}");
+                var dllToCopy = Path.Combine(buildDir, "inst", "lib", $"{prefix}{settings.DLLTargets[index]}.{dllExtension}");
                 var filename = Path.GetFileNameWithoutExtension(dllToCopy);
                 File.Copy(dllToCopy, Path.Combine(embeddedFilesPath, $"{filename}.dll"), overwrite: true);
+            }
+
+            if (!String.IsNullOrWhiteSpace(stampPath))
+            {
+                if (File.Exists(stampPath))
+                {
+                    File.SetLastWriteTimeUtc(stampPath, DateTime.UtcNow);
+                }
+                else
+                {
+                    using (File.Create(stampPath))
+                    {
+
+                    }
+                }
             }
 
             Console.WriteLine("Work complete");

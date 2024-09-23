@@ -1,17 +1,38 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <NativeCodeSettings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    
+
         <!-- Path to your native codebase with a CMakeLists.txt file -->
     <PathToNativeCodeBase>../../Native/</PathToNativeCodeBase>
-        
+
         <!-- Shared Library names to copy post build -->
     <DLLTargets>
         <Target>Target</Target>
     </DLLTargets>
-    
-        <!-- Additional arguments to pass to cmake -->
-    <CMakeArguments>-DCMAKE_DEBUG_POSTFIX=</CMakeArguments>
-        
-        <!-- Optional base build path --> 
+
+        <!-- Additional arguments to pass to cmake at the generation stage -->
+    <CMakeGenerationArguments>-DCMAKE_DEBUG_POSTFIX=</CMakeGenerationArguments>
+
+    <!-- Additional arguments to pass to cmake at the build phase -->
+    <CMakeBuildArguments>-j48</CMakeBuildArguments>
+
+    <!-- File for tracking when last build was done -->
+    <BuildStampPath>./build_stamp</BuildStampPath>
+
+        <!-- Optional base build path -->
     <BuildPathBase>build</BuildPathBase>
+
+    <NativeFileExtensions>
+        <Extension>
+        hh
+        </Extension>
+        <Extension>
+        cpp
+        </Extension>
+        <Extension>
+        h
+        </Extension>
+        <Extension>
+        c
+        </Extension>
+    </NativeFileExtensions>
 </NativeCodeSettings>

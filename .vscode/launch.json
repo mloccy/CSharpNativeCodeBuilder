@@ -9,10 +9,11 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/NativeCodeBuilder/Artomatix.NativeCodeBuilder/bin/Debug/net8.0/Artomatix.NativeCodeBuilder.dll",
-            "args": ["../../PbrGen/PbrGen.Net/PbrGen.Net", "Debug" ],
-
+            "program": "${workspaceFolder}/Artomatix.NativeCodeBuilder/bin/Debug/net8.0/Artomatix.NativeCodeBuilder.dll",
+            "args": [
+                "${workspaceFolder}/../addons/PbrGen/PbrGen.Net/PbrGen.Net/NativeCodeSettings.xml",
+                "Debug"
+            ],
         }
-
     ]
 }

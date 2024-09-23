@@ -4,9 +4,11 @@
         {
             "label": "build",
             "command": "dotnet",
-            "args": ["build"],
+            "args": [
+                "build"
+            ],
             "options": {
-                "cwd": "${workspaceFolder}/NativeCodeBuilder/Artomatix.NativeCodeBuilder/"
+                "cwd": "${workspaceFolder}/Artomatix.NativeCodeBuilder/"
             }
         }
     ]
