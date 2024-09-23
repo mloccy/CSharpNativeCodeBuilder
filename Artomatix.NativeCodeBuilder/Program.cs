@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
@@ -244,7 +245,7 @@ namespace Artomatix.NativeCodeBuilder
             Console.WriteLine($"CMake Generation args are {cfargs}");
             var cmakeConfigureLaunchArgs = new ProcessStartInfo("cmake", cfargs)
             {
-                UseShellExecute = false,
+                UseShellExecute = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
                 CreateNoWindow = true,
                 RedirectStandardError = true,
                 RedirectStandardOutput = true
