@@ -48,8 +48,8 @@ namespace Artomatix.NativeCodeBuilder
         [Verb(nameof(BuildArgs), true)]
         private class BuildArgs
         {
-            [Value(0, Required = true, MetaName = nameof(SettingsPath))]
-            public string SettingsPath { get; set; }
+            [Value(0, Required = true, MetaName = nameof(ProjectDir))]
+            public string ProjectDir { get; set; }
 
             [Value(1, Required = true, MetaName = nameof(Configuration))]
             public string Configuration { get; set; }
@@ -224,7 +224,7 @@ namespace Artomatix.NativeCodeBuilder
 
         private static int HandleBuildCommand(BuildArgs args)
         {
-            var projectDir = Path.GetDirectoryName(args.SettingsPath);
+            var projectDir = args.ProjectDir;
 
             if (!Path.IsPathRooted(projectDir))
             {
@@ -249,9 +249,11 @@ namespace Artomatix.NativeCodeBuilder
                 arch = originalArch;
             }
 
-            if (!File.Exists(args.SettingsPath))
+            var settingsPath = Path.Join(projectDir, "NativeCodeSettings.xml");
+
+            if (!File.Exists(settingsPath))
             {
-                Console.Error.WriteLine($"Native settings file not found: {args.SettingsPath}");
+                Console.Error.WriteLine($"Native settings file not found: {settingsPath}");
 
                 return (int)Error.NativeSettingsNotFound;
             }
@@ -259,7 +261,7 @@ namespace Artomatix.NativeCodeBuilder
             var serializer = new XmlSerializer(typeof(NativeCodeSettings));
 
             INativeCodeSettings settings = null;
-            using (var file = File.OpenRead(args.SettingsPath))
+            using (var file = File.OpenRead(settingsPath))
             {
                 settings = (NativeCodeSettings)serializer.Deserialize(file);
             }
@@ -285,7 +287,7 @@ namespace Artomatix.NativeCodeBuilder
             {
                 Console.Error.Write(
                     $"Your native source code directory ({nativeCodePath}) doesn't exist!\n" +
-                    $"Edit this file to change it: {args.SettingsPath}\n" +
+                    $"Edit this file to change it: {settingsPath}\n" +
                     $"Current contents:{string.Join(Environment.NewLine, settings)}");
 
                 return (int)Error.NativeCodePathNotFound;
