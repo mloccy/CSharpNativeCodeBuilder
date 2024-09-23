@@ -234,7 +234,7 @@ namespace Artomatix.NativeCodeBuilder
 
             if (vs2019)
             {
-                cfargs = $@"-S {nativeCodePath} -G {generator} -A {arch} -T {buildTools} -B {buildDir} {cmakeArgs} -DCMAKE_INSTALL_PREFIX={buildDir}/inst";
+                cfargs = $@"-S {nativeCodePath} -G ""{generator}\"" -A {arch} -T {buildTools} -B {buildDir} {cmakeArgs} -DCMAKE_INSTALL_PREFIX={buildDir}/inst";
             }
             else
             {
