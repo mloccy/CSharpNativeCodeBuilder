@@ -152,10 +152,11 @@ namespace Artomatix.NativeCodeBuilder
             return 0;
         }
 
-        static ActionRequired CheckActionNeededToBuild(string stampPath, string[] extensions, string baseDir)
+        static ActionRequired CheckActionNeededToBuild(string stampPath, string nativeSettingsPath, string[] extensions, string baseDir)
         {
             if (!File.Exists(stampPath))
             {
+                Console.WriteLine("No build stamp detected, regenerating");
                 return ActionRequired.Regenerate;
             }
 
@@ -164,11 +165,19 @@ namespace Artomatix.NativeCodeBuilder
                 return ActionRequired.Regenerate;
             }
 
+            var settingsFileInfo = new FileInfo(nativeSettingsPath);
+            var stampLastWritten = new FileInfo(stampPath).LastWriteTimeUtc;
+
+            if (settingsFileInfo.LastWriteTimeUtc > stampLastWritten)
+            {
+                Console.WriteLine($"Change detected to NativCodeeSettings at {nativeSettingsPath}, Regenerating.");
+                return ActionRequired.Regenerate;
+            }
+
             extensions = extensions
                 .Select(f => f.ToLowerInvariant())
                 .Select(f => f.Trim()).ToArray();
 
-            var stampLastWritten = new FileInfo(stampPath).LastWriteTimeUtc;
             var options = new EnumerationOptions
             {
                 BufferSize = (int)Math.Pow(2, 16),
@@ -293,7 +302,7 @@ namespace Artomatix.NativeCodeBuilder
                 return (int)Error.NativeCodePathNotFound;
             }
 
-            var actionRequested = CheckActionNeededToBuild(stampPath, settings.NativeFileExtensions, nativeCodePath);
+            var actionRequested = CheckActionNeededToBuild(stampPath, settingsPath, settings.NativeFileExtensions, nativeCodePath);
 
             if (actionRequested == ActionRequired.None)
             {
@@ -411,9 +420,40 @@ namespace Artomatix.NativeCodeBuilder
             for (var index = 0; index < settings.DLLTargets.Length; index++)
             {
                 var prefix = platform != Platform.Windows ? "lib" : string.Empty;
-                var dllToCopy = Path.Combine(buildDir, "inst", "lib", $"{prefix}{settings.DLLTargets[index]}.{dllExtension}");
-                var filename = Path.GetFileNameWithoutExtension(dllToCopy);
-                File.Copy(dllToCopy, Path.Combine(embeddedFilesPath, $"{filename}.dll"), overwrite: true);
+                var debugPostfix = "d";
+                var filenamesToTry = new string[]{
+                    $"{prefix}{settings.DLLTargets[index]}.{dllExtension}",
+                    $"{prefix}{settings.DLLTargets[index]}{debugPostfix}.{dllExtension}"
+                };
+
+                var dllParentPath = Path.Join(buildDir, "inst", "lib");
+
+                foreach (var name in filenamesToTry)
+                {
+                    var dllToCopy = Path.Join(dllParentPath, name);
+                    var filename = Path.GetFileNameWithoutExtension(dllToCopy);
+                    var dest = Path.Join(embeddedFilesPath, $"{filename}.{dllExtension}");
+                    try
+                    {
+                        File.Copy(dllToCopy, dest, overwrite: true);
+                        Console.WriteLine($"Sucessfully copied {dllToCopy} to {dest}");
+                        var pdbFileName = Path.ChangeExtension(name, "pdb");
+                        var pdbPath = Path.Join(dllParentPath, pdbFileName);
+                        var pdbDestPath = Path.Join(embeddedFilesPath, pdbFileName);
+
+                        if (File.Exists(pdbPath))
+                        {
+                            File.Copy(pdbPath, pdbDestPath);
+                        }
+
+                        break;
+                    }
+                    catch
+                    {
+                        Console.WriteLine($"Failed to copy {dllToCopy} to {dest}");
+                    }
+                }
+
             }
 
             if (!String.IsNullOrWhiteSpace(stampPath))

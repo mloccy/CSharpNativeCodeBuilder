@@ -11,7 +11,7 @@
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/Artomatix.NativeCodeBuilder/bin/Debug/net8.0/Artomatix.NativeCodeBuilder.dll",
             "args": [
-                "${workspaceFolder}/../addons/PbrGen/PbrGen.Net/PbrGen.Net/NativeCodeSettings.xml",
+                "${workspaceFolder}/../addons/PbrGen/PbrGen.Net/PbrGen.Net",
                 "Debug"
             ],
         }
