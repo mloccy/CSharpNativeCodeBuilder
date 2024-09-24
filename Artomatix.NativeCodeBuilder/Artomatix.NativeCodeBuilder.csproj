@@ -8,7 +8,7 @@
     <ToolCommandName>anb</ToolCommandName>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <PackageVersion>1.11.0</PackageVersion>
+    <PackageVersion>1.12.0</PackageVersion>
     <PublishDir>NativeCodeBuilderPublish</PublishDir>
   </PropertyGroup>
   <ItemGroup>
