@@ -275,7 +275,7 @@ namespace Artomatix.NativeCodeBuilder
                 settings = (NativeCodeSettings)serializer.Deserialize(file);
             }
 
-            var stampPath = settings.BuildStampPath;
+            var stampPath = $"{settings.BuildStampPath}_{configuration}";
 
             if (String.IsNullOrWhiteSpace(stampPath))
             {
