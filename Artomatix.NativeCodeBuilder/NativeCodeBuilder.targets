@@ -11,11 +11,11 @@
   <!-- don't condition this on the existence of the nativecodebuilder, as we don't want it to fail silently -->
   <Target Name="BuildNativeCode" >
     <Exec
-        Condition="'$(OS)' != 'Windows_NT'"
-        Command="&quot;$(MSBuildThisFileDirectory)/Artomatix.NativeCodeBuilder&quot; &quot;$(ProjectDir.TrimEnd('\'))&quot; &quot;$(NativeConfigurationName)&quot;" />
+        Condition="'$(OS)' != 'Windows_NT' AND '$(OS)' != 'Msys'"
+        Command="&quot;$(MSBuildThisFileDirectory)/Artomatix.NativeCodeBuilder&quot; &quot;$(ProjectDir)&quot; &quot;$(NativeConfigurationName)&quot;" />
 
     <Exec
-        Condition="'$(OS)' == 'Windows_NT'"
+        Condition="'$(OS)' == 'Windows_NT' OR '$(OS)' == 'Msys'"
         Command="&quot;$(MSBuildThisFileDirectory)/Artomatix.NativeCodeBuilder.exe&quot; &quot;$(ProjectDir.TrimEnd('\'))&quot; &quot;$(NativeConfigurationName)&quot;" />
 
   </Target>
