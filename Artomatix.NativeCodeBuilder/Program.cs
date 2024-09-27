@@ -101,7 +101,9 @@ namespace Artomatix.NativeCodeBuilder
                 return HandleCreateCommand(createOpts);
             }
 
-            return 1;
+            Console.WriteLine(args);
+
+            return (int)Error.InvalidArgs;
         }
 
         private static int HandleCreateCommand(CreateArgs args)
@@ -129,7 +131,7 @@ namespace Artomatix.NativeCodeBuilder
                 if (key == 'n' || key == 'N' || key == '\n' || key == '\r')
                 {
                     Console.WriteLine("Cancelling...");
-                    return 0;
+                    return (int)Error.Success;
                 }
                 else if (key == 'y' || key == 'Y')
                 {
@@ -149,10 +151,10 @@ namespace Artomatix.NativeCodeBuilder
                 serializer.Serialize(writer, settings);
             }
 
-            return 0;
+            return (int)Error.Success;
         }
 
-        static ActionRequired CheckActionNeededToBuild(string stampPath, string nativeSettingsPath, string[] extensions, string baseDir)
+        static ActionRequired CheckActionNeededToBuild(string stampPath, string buildPathBase, string nativeSettingsPath, string[] extensions, string baseDir)
         {
             if (!File.Exists(stampPath))
             {
@@ -187,6 +189,17 @@ namespace Artomatix.NativeCodeBuilder
 
             var allFiles = Directory
                 .EnumerateFiles(baseDir, "*.*", options);
+
+            var buildFiles = allFiles
+                                .Select(f =>
+                                new
+                                {
+                                    Orig = f,
+                                    Trimmed = f.Split(baseDir)[1].TrimStart('\\')
+                                })
+                                .Where(f => f.Trimmed.StartsWith(buildPathBase))
+                                .Select(f => f.Orig);
+            allFiles = allFiles.Except(buildFiles);
 
             var sourceFileWrittenTimes = allFiles
                 .Where(s => extensions.Contains(Path.GetExtension(s).TrimStart('.').ToLowerInvariant()))
@@ -302,7 +315,7 @@ namespace Artomatix.NativeCodeBuilder
                 return (int)Error.NativeCodePathNotFound;
             }
 
-            var actionRequested = CheckActionNeededToBuild(stampPath, settingsPath, settings.NativeFileExtensions, nativeCodePath);
+            var actionRequested = CheckActionNeededToBuild(stampPath, settings.BuildPathBase, settingsPath, settings.NativeFileExtensions, nativeCodePath);
 
             if (actionRequested == ActionRequired.None)
             {
